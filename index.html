@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CRUD Estudiantes</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <style>
+    #fotoPreview {
+      max-width: 100px;
+      max-height: 100px;
+      object-fit: cover;
+    }
+  </style>
+</head>
+<body class="p-3">
+  <div class="container">
+    <h1 class="mb-4">CRUD Estudiantes</h1>
+
+    <!-- Formulario para crear/editar -->
+    <form id="formEstudiante" enctype="multipart/form-data" class="mb-4">
+      <input type="hidden" id="id_estudiante" />
+      <div class="mb-3">
+        <label for="foto" class="form-label">Foto</label>
+        <input type="file" class="form-control" id="foto" name="foto" accept="image/*" />
+        <img id="fotoPreview" src="" alt="Foto Preview" class="mt-2 d-none" />
+      </div>
+      <div class="mb-3">
+        <label for="dni" class="form-label">DNI</label>
+        <input type="text" class="form-control" id="dni" name="dni" required maxlength="8" />
+      </div>
+      <div class="mb-3">
+        <label for="nombre_apellido" class="form-label">Nombre y Apellido</label>
+        <input type="text" class="form-control" id="nombre_apellido" name="nombre_apellido" required maxlength="50" />
+      </div>
+      <div class="mb-3">
+        <label for="fecha_nac" class="form-label">Fecha de Nacimiento</label>
+        <input type="date" class="form-control" id="fecha_nac" name="fecha_nac" />
+      </div>
+      <div class="mb-3">
+        <label for="direccion" class="form-label">Dirección</label>
+        <textarea class="form-control" id="direccion" name="direccion" rows="2" required maxlength="500"></textarea>
+      </div>
+      <div class="mb-3">
+        <label for="carrera" class="form-label">Carrera</label>
+        <input type="text" class="form-control" id="carrera" name="carrera" required maxlength="50" />
+      </div>
+      <div class="mb-3">
+        <label for="periodo" class="form-label">Periodo</label>
+        <input type="text" class="form-control" id="periodo" name="periodo" required maxlength="50" />
+      </div>
+      <div class="mb-3">
+        <label for="sede" class="form-label">Sede</label>
+        <input type="text" class="form-control" id="sede" name="sede" required maxlength="50" />
+      </div>
+      <button type="submit" class="btn btn-primary" id="btnSubmit">Guardar</button>
+      <button type="button" class="btn btn-secondary" id="btnCancelar">Cancelar</button>
+    </form>
+
+    <!-- Buscador -->
+    <input
+      type="text"
+      id="buscador"
+      placeholder="Buscar por nombre, DNI o código"
+      class="form-control mb-3"
+    />
+
+    <!-- Tabla -->
+    <table class="table table-bordered table-striped">
+      <thead class="table-dark">
+        <tr>
+          <th>Foto</th>
+          <th>DNI</th>
+          <th>Nombre y Apellido</th>
+          <th>Fecha Nac.</th>
+          <th>Dirección</th>
+          <th>Carrera</th>
+          <th>Periodo</th>
+          <th>Sede</th>
+          <th>Código Estudiante</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
+      <tbody id="tablaBody"></tbody>
+    </table>
+  </div>
+
+  <script>
+    const API_URL = '/api/estudiantes';
+    const tablaBody = document.getElementById('tablaBody');
+    const form = document.getElementById('formEstudiante');
+    const buscador = document.getElementById('buscador');
+    const btnCancelar = document.getElementById('btnCancelar');
+    const fotoInput = document.getElementById('foto');
+    const fotoPreview = document.getElementById('fotoPreview');
+
+    // Variables para edición
+    let editando = false;
+
+    // Mostrar preview de imagen al seleccionar
+    fotoInput.addEventListener('change', () => {
+      const file = fotoInput.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = e => {
+          fotoPreview.src = e.target.result;
+          fotoPreview.classList.remove('d-none');
+        };
+        reader.readAsDataURL(file);
+      } else {
+        fotoPreview.src = '';
+        fotoPreview.classList.add('d-none');
+      }
+    });
+
+    // Función para cargar estudiantes (con búsqueda)
+    async function cargarEstudiantes(query = '') {
+      try {
+        const res = await fetch(`${API_URL}?q=${encodeURIComponent(query)}`);
+        if (!res.ok) throw new Error('Error al cargar estudiantes');
+        const data = await res.json();
+
+        tablaBody.innerHTML = '';
+        if (data.length === 0) {
+          tablaBody.innerHTML = `<tr><td colspan="10" class="text-center">No se encontraron estudiantes</td></tr>`;
+          return;
+        }
+
+        data.forEach(est => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td><img src="/uploads/${est.foto || 'default.png'}" alt="Foto" style="width: 60px; height: 60px; object-fit: cover;"></td>
+            <td>${est.dni}</td>
+            <td>${est.nombre_apellido}</td>
+            <td>${est.fecha_nac ? new Date(est.fecha_nac).toLocaleDateString() : ''}</td>
+            <td>${est.direccion}</td>
+            <td>${est.carrera}</td>
+            <td>${est.periodo}</td>
+            <td>${est.sede}</td>
+            <td>${est.cod_estudiante}</td>
+            <td>
+              <button class="btn btn-sm btn-warning btnEditar" data-id="${est.id_estudiante}">Editar</button>
+              <button class="btn btn-sm btn-danger btnEliminar" data-id="${est.id_estudiante}">Eliminar</button>
+            </td>
+          `;
+          tablaBody.appendChild(tr);
+        });
+
+        // Asignar eventos a botones
+        document.querySelectorAll('.btnEditar').forEach(btn => {
+          btn.addEventListener('click', () => {
+            cargarEstudiante(btn.dataset.id);
+          });
+        });
+
+        document.querySelectorAll('.btnEliminar').forEach(btn => {
+          btn.addEventListener('click', () => {
+            eliminarEstudiante(btn.dataset.id);
+          });
+        });
+      } catch (error) {
+        console.error('Error cargando estudiantes:', error);
+        Swal.fire('Error', 'No se pudieron cargar los estudiantes', 'error');
+      }
+    }
+
+    // Función para cargar estudiante en el formulario para editar
+    async function cargarEstudiante(id) {
+      try {
+        const res = await fetch(`${API_URL}?q=`);
+        if (!res.ok) throw new Error('Error al cargar estudiante');
+        const data = await res.json();
+        const est = data.find(e => e.id_estudiante == id);
+        if (!est) {
+          Swal.fire('Error', 'Estudiante no encontrado', 'error');
+          return;
+        }
+        editando = true;
+        document.getElementById('id_estudiante').value = est.id_estudiante;
+        document.getElementById('dni').value = est.dni;
+        document.getElementById('nombre_apellido').value = est.nombre_apellido;
+        document.getElementById('fecha_nac').value = est.fecha_nac ? est.fecha_nac.split('T')[0] : '';
+        document.getElementById('direccion').value = est.direccion;
+        document.getElementById('carrera').value = est.carrera;
+        document.getElementById('periodo').value = est.periodo;
+        document.getElementById('sede').value = est.sede;
+
+        if (est.foto) {
+          fotoPreview.src = `/uploads/${est.foto}`;
+          fotoPreview.classList.remove('d-none');
+        } else {
+          fotoPreview.src = '';
+          fotoPreview.classList.add('d-none');
+        }
+
+        btnCancelar.classList.remove('d-none');
+      } catch (error) {
+        console.error(error);
+        Swal.fire('Error', 'No se pudo cargar el estudiante', 'error');
+      }
+    }
+
+    // Guardar o actualizar estudiante
+    form.addEventListener('submit', async e => {
+      e.preventDefault();
+
+      const formData = new FormData(form);
+
+      let url = API_URL;
+      let method = 'POST';
+      if (editando) {
+        const id = document.getElementById('id_estudiante').value;
+        url += `/${id}`;
+        method = 'PUT';
+      }
+
+      try {
+        const res = await fetch(url, {
+          method,
+          body: formData
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.message || 'Error al guardar estudiante');
+
+        Swal.fire('Éxito', data.message, 'success');
+        form.reset();
+        fotoPreview.src = '';
+        fotoPreview.classList.add('d-none');
+        editando = false;
+        btnCancelar.classList.add('d-none');
+        cargarEstudiantes(buscador.value.trim());
+      } catch (error) {
+        Swal.fire('Error', error.message, 'error');
+      }
+    });
+
+    // Cancelar edición
+    btnCancelar.addEventListener('click', () => {
+      form.reset();
+      fotoPreview.src = '';
+      fotoPreview.classList.add('d-none');
+      editando = false;
+      btnCancelar.classList.add('d-none');
+    });
+
+    // Eliminar estudiante
+    async function eliminarEstudiante(id) {
+      const result = await Swal.fire({
+        title: '¿Estás seguro?',
+        text: 'Esta acción no se puede deshacer',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Sí, eliminar',
+        cancelButtonText: 'Cancelar'
+      });
+
+      if (!result.isConfirmed) return;
+
+      try {
+        const res = await fetch(`${API_URL}/${id}`, {
+          method: 'DELETE'
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.message || 'Error al eliminar estudiante');
+
+        Swal.fire('Eliminado', data.message, 'success');
+        cargarEstudiantes(buscador.value.trim());
+      } catch (error) {
+        Swal.fire('Error', error.message, 'error');
+      }
+    }
+
+    // Búsqueda con debounce para detectar inactividad
+    let timeoutId;
+    buscador.addEventListener('input', () => {
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => {
+        const query = buscador.value.trim();
+        if (query.length === 0 || query.length >= 2) {
+          cargarEstudiantes(query);
+        }
+      }, 500); // 500ms después de dejar de escribir
+    });
+
+    // Cargar estudiantes al iniciar
+    cargarEstudiantes();
+  </script>
+</body>
+</html>
